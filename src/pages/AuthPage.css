@@ -1,0 +1,22 @@
+.auth-page { display: grid; min-height: calc(100vh - 64px); place-items: center; padding: 28px; background: #f3f5fb; }
+.auth-card { width: min(100%, 445px); padding: 31px; background: #fff; border: 1px solid #e0e6f3; border-radius: 14px; box-shadow: 0 15px 38px rgba(41, 50, 65, .09); }
+.auth-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 24px; color: #647080; font-size: 11px; }
+.auth-icon { display: grid; width: 46px; height: 46px; margin-bottom: 16px; place-items: center; color: #fff; background: #436086; border-radius: 12px; }
+.auth-eyebrow { margin: 0 0 6px; color: #9a442d; font: 600 9px 'Space Grotesk', sans-serif; letter-spacing: .09em; }
+.auth-card h1 { margin: 0 0 8px; color: #293241; font: 700 25px/1.2 'Space Grotesk', sans-serif; }
+.auth-description { margin: 0; color: #647080; font-size: 12px; line-height: 18px; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 23px 0 18px; padding: 4px; background: #e7eeff; border-radius: 7px; }
+.auth-tabs button { min-height: 35px; color: #55423e; background: transparent; border: 0; border-radius: 5px; font: 500 11px 'Space Grotesk', sans-serif; cursor: pointer; }
+.auth-tabs button.is-active { color: #293241; background: #fff; box-shadow: 0 1px 4px #29324118; }
+.auth-form { display: grid; gap: 14px; margin-top: 23px; }
+.auth-tabs + .auth-form { margin-top: 0; }
+.auth-form label { display: grid; gap: 6px; color: #293241; font: 500 11px 'Space Grotesk', sans-serif; }
+.auth-form input { min-height: 41px; padding: 9px 11px; color: #293241; background: #fff; border: 1px solid #d8deeb; border-radius: 6px; font: 13px 'DM Sans', sans-serif; }
+.auth-form input:focus { border-color: #e07a5f; outline: 2px solid #e07a5f22; }
+.auth-form label small { color: #647080; font: 10px 'DM Sans', sans-serif; }
+.auth-error { margin: 0; color: #ba1a1a; font-size: 11px; line-height: 17px; }
+.auth-submit { min-height: 42px; margin-top: 3px; color: #fff; background: #9a442d; border: 0; border-radius: 6px; font: 600 11px 'Space Grotesk', sans-serif; cursor: pointer; }
+.auth-submit:hover { background: #803a27; }
+.auth-submit:disabled { cursor: wait; opacity: .65; }
+.auth-admin-link { display: block; margin-top: 19px; color: #436086; font-size: 10px; text-align: center; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 760px) { .auth-page { min-height: calc(100vh - 220px); padding: 18px; } .auth-card { padding: 24px; } }

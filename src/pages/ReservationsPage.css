@@ -122,6 +122,12 @@
 .dialog-total { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 13px; padding: 13px; background: #f0f3ff; border-radius: 8px; font-size: 12px; }
 .dialog-total strong { color: var(--booking-primary); font: 700 20px 'Space Grotesk', sans-serif; }
 .dialog-note { margin: 0 0 17px; color: #55423e; font-size: 11px; line-height: 17px; }
+.booking-error { margin: 10px 0; color: #ba1a1a; font-size: 12px; line-height: 18px; }
+.athlete-fields { display: grid; gap: 10px; margin: 12px 0 16px; }
+.athlete-fields > p { margin: 0; color: #55423e; font-size: 11px; line-height: 17px; }
+.athlete-fields label { display: grid; gap: 5px; color: var(--booking-ink); font: 500 11px 'Space Grotesk', sans-serif; }
+.athlete-fields input { min-height: 37px; padding: 8px 10px; color: var(--booking-ink); background: #fff; border: 1px solid var(--booking-line); border-radius: 6px; font: 12px 'DM Sans', sans-serif; }
+.athlete-fields input:focus { border-color: var(--booking-accent); outline: 2px solid rgba(224, 122, 95, .16); }
 
 @media (max-width: 1050px) {
   .booking-layout { grid-template-columns: minmax(0, 1.5fr) minmax(245px, .8fr); gap: 16px; }

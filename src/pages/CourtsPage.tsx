@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowRight, Search, Sun, Trees, Waves } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { courts } from '@/features/courts/data'
+import { mapCourt, type Court } from '@/features/courts/data'
+import { getApiErrorMessage, listCourts } from '@/services/api/client'
 import './CourtsPage.css'
 
 type CourtFilter = 'Todas' | 'Cobertas' | 'Ao ar livre'
@@ -14,6 +15,26 @@ const normalize = (value: string) =>
 export default function CourtsPage() {
   const [filter, setFilter] = useState<CourtFilter>('Todas')
   const [query, setQuery] = useState('')
+  const [courts, setCourts] = useState<Court[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    listCourts()
+      .then((items) => {
+        if (active) setCourts(items.map(mapCourt))
+      })
+      .catch((requestError: unknown) => {
+        if (active) setError(getApiErrorMessage(requestError, 'Não foi possível carregar as quadras.'))
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => { active = false }
+  }, [])
+
   const visibleCourts = courts.filter((court) => {
     const matchesFilter = filter === 'Todas'
       || (filter === 'Cobertas' ? court.covering !== 'Ao ar livre' : court.covering === 'Ao ar livre')
@@ -45,7 +66,11 @@ export default function CourtsPage() {
         <label className="court-search"><Search size={16} /><input aria-label="Buscar quadra ou comodidade" onChange={(event) => setQuery(event.target.value)} placeholder="Buscar quadra ou comodidade" value={query} /></label>
       </div>
 
-      {visibleCourts.length > 0 ? (
+      {loading ? (
+        <div className="courts-empty" role="status">Carregando quadras...</div>
+      ) : error ? (
+        <div className="courts-empty" role="alert">{error}</div>
+      ) : visibleCourts.length > 0 ? (
         <section aria-label="Quadras disponíveis" className="court-catalog">
           {visibleCourts.map((court, index) => (
             <article className="catalog-card" key={court.id}>
@@ -53,7 +78,7 @@ export default function CourtsPage() {
                 <img alt={court.imageAlt} className="catalog-photo" loading="lazy" src={court.image} />
                 <span className="catalog-badge"><span>{court.covering === 'Ao ar livre' ? <Sun size={13} /> : <Waves size={13} />}</span>{court.covering}</span>
                 <div className="catalog-photo-caption"><small>QUADRA OFICIAL {String(index + 1).padStart(2, '0')}</small><strong>{court.name.split('—')[1]?.trim() ?? court.name}</strong></div>
-                <span className="catalog-photo-price">A partir de <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(court.price)}<small>/h</small></strong></span>
+                <span className="catalog-photo-price"><strong>Consultar horários</strong></span>
               </div>
               <div className="catalog-card-content">
                 <div><h2>{court.name}</h2><p>{court.description}. Preparada para treinos, aulas e partidas entre amigos.</p></div>

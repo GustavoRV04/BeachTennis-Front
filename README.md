@@ -18,7 +18,19 @@ Validação de produção: `npm run build`. Verificação de lint: `npm run lint
 
 ## Configuração da API
 
-Copie `.env.example` para `.env.local` e ajuste `VITE_API_URL` para o endereço da API indicado em `launchSettings.json`. O cliente Axios fica em `src/services/api/client.ts`.
+Copie `.env.example` para `.env.local`. O valor padrão aponta para `http://localhost:5030`, conforme o perfil HTTP do back-end. Em produção, configure `VITE_API_URL` no Vercel com a URL pública da API ASP.NET.
+
+O catálogo, a consulta de horários, o cadastro/login do atleta, a criação/cancelamento e a consulta das próprias reservas usam a API autenticada. Tokens JWT são mantidos neste navegador. A área de administração exige o perfil administrativo provisionado no back-end. A API não processa pagamentos.
+
+Para usar as novas contas localmente, configure também `Auth:SigningKey`, `Admin:Email` e `Admin:Password` nos User Secrets da API e aplique as migrations; as instruções estão no [README do back-end](../BeachTennis/README.md).
+
+O projeto de back-end e as instruções para usar Supabase estão em `../BeachTennis/README.md`.
+
+## Publicação no Vercel
+
+Configure `BeachT-Front` como diretório raiz do projeto e `VITE_API_URL` como a URL HTTPS base da API ASP.NET publicada no Render (sem o sufixo `/api`). Defina a variável para o ambiente Production e publique novamente após alterá-la. O `vercel.json` mantém as rotas do React Router acessíveis ao atualizar ou abrir uma página diretamente.
+
+A API precisa estar publicada separadamente e permitir a origem exata do domínio Vercel em CORS. Consulte as etapas de publicação no [README do back-end](../BeachTennis/README.md#publicação-render-supabase-e-vercel).
 
 ## Organização
 
@@ -34,4 +46,4 @@ Copie `.env.example` para `.env.local` e ajuste `VITE_API_URL` para o endereço 
 
 O alias `@/` aponta para `src/`. As dependências iniciais são React Router para navegação, Axios para HTTP e Lucide React para ícones; Vite, React e TypeScript completam a base do projeto.
 
-As telas de reserva, catálogo e minhas reservas usam dados de demonstração. Seleções, filtros, resumo de preço, abas, prévia de confirmação e cancelamento local funcionam no navegador; disponibilidade, pagamento, criação/cancelamento persistente e condições reais dependem da integração com a API.
+Fotos, cobertura e comodidades são conteúdo visual do front e não vêm da API. O valor e a duração efetivos da reserva continuam sendo definidos pelas regras existentes no back-end.

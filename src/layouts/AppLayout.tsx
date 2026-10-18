@@ -1,15 +1,26 @@
-import { CalendarDays, CalendarRange, CircleDot, LayoutDashboard } from 'lucide-react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { CalendarDays, CalendarRange, CircleDot, LayoutDashboard, ShieldCheck } from 'lucide-react'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import arenaLogo from '@/assets/logo.png'
+import { clearAuthSession, getAuthSession } from '@/features/auth/session'
 
 const navigation = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard, end: true },
   { to: '/reservas', label: 'Reservar quadra', icon: CalendarDays },
   { to: '/minhas-reservas', label: 'Minhas reservas', icon: CalendarRange },
   { to: '/quadras', label: 'Conhecer quadras', icon: CircleDot },
+  { to: '/admin', label: 'Área administrativa', icon: ShieldCheck },
 ]
 
 export default function AppLayout() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const session = getAuthSession()
+
+  const signOut = () => {
+    clearAuthSession()
+    navigate('/')
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -17,7 +28,7 @@ export default function AppLayout() {
           <span className="brand-logo-plate"><img alt="Arena BT - Gestão de quadras" src={arenaLogo} /></span>
         </Link>
 
-        <p className="nav-caption">GESTÃO</p>
+        <p className="nav-caption">MENU</p>
         <nav className="primary-nav" aria-label="Navegação principal">
           {navigation.map(({ to, label, icon: Icon, end }) => (
             <NavLink
@@ -43,8 +54,13 @@ export default function AppLayout() {
 
       <main className="main-content">
         <header className="topbar">
-          <span className="topbar-label">PAINEL DE GESTÃO</span>
-          <span className="connection-status"><span /> Dados demonstrativos</span>
+          <span className="topbar-label">ARENA BEACH TENNIS</span>
+          <div className="topbar-account">
+            <span className="connection-status"><span />{session ? `Olá, ${session.usuario.nome}` : 'Acesso público'}</span>
+            {session
+              ? <button className="account-action" onClick={signOut} type="button">Sair</button>
+              : location.pathname !== '/acesso' && <Link className="account-action" to={`/acesso?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`}>Entrar</Link>}
+          </div>
         </header>
         <div className="page-content"><Outlet /></div>
       </main>

@@ -1,30 +1,43 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CalendarCheck, Check, Clock3, Copy, Share2, ShieldCheck, X } from 'lucide-react'
-import { courts } from '@/features/courts/data'
+import { useNavigate } from 'react-router-dom'
+import { getAuthSession } from '@/features/auth/session'
+import { mapCourt, type Court } from '@/features/courts/data'
+import {
+  cancelReservation,
+  getApiErrorMessage,
+  listCourts,
+  listMyReservations,
+  type Reservation,
+} from '@/services/api/client'
 import './MyReservationsPage.css'
 
-type BookingStatus = 'confirmed' | 'cancelled'
-type Booking = {
-  id: string
-  courtId: string
-  date: string
+type Booking = Reservation & {
   dateLabel: string
   startTime: string
   duration: number
-  payment: string
-  players: string
-  status: BookingStatus
+  isCancelled: boolean
 }
 
-const initialBookings: Booking[] = [
-  { id: 'BT-8841', courtId: 'central', date: '2026-10-04', dateLabel: 'Hoje', startTime: '18:30', duration: 90, payment: 'PIX aprovado', players: '3/4 vagas', status: 'confirmed' },
-  { id: 'BT-8890', courtId: 'sunset', date: '2026-10-10', dateLabel: 'Sáb', startTime: '09:00', duration: 90, payment: 'Bolas inclusas', players: 'Grupo fechado', status: 'confirmed' },
-]
+function toBooking(reservation: Reservation, today: Date): Booking {
+  const start = new Date(reservation.inicio)
+  const end = new Date(reservation.fim)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  const dateLabel = start.toDateString() === today.toDateString()
+    ? 'Hoje'
+    : start.toDateString() === tomorrow.toDateString()
+      ? 'Amanhã'
+      : new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' }).format(start)
 
-const history = [
-  { id: 'BT-8712', courtId: 'prime', dateLabel: '28 de setembro', startTime: '19:00', duration: 90 },
-  { id: 'BT-8660', courtId: 'central', dateLabel: '21 de setembro', startTime: '08:00', duration: 90 },
-]
+  return {
+    ...reservation,
+    dateLabel,
+    startTime: new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(start),
+    duration: Math.round((end.getTime() - start.getTime()) / 60000),
+    isCancelled: reservation.status.toLocaleLowerCase('pt-BR').includes('cancel'),
+  }
+}
 
 function endTime(startTime: string, duration: number) {
   const [hours, minutes] = startTime.split(':').map(Number)
@@ -33,34 +46,82 @@ function endTime(startTime: string, duration: number) {
 }
 
 export default function MyReservationsPage() {
-  const [bookings, setBookings] = useState(initialBookings)
+  const navigate = useNavigate()
+  const session = getAuthSession()
+  const hasSession = session !== null
+  const isAthlete = session?.perfil === 'Athlete'
+  const [now] = useState(() => new Date())
+  const [reservations, setReservations] = useState<Reservation[]>([])
+  const [courts, setCourts] = useState<Court[]>([])
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming')
   const [cancelTarget, setCancelTarget] = useState<Booking | null>(null)
   const [notice, setNotice] = useState('')
-  const upcoming = bookings.filter((booking) => booking.status === 'confirmed')
-  const cancelled = bookings.filter((booking) => booking.status === 'cancelled')
+  const [error, setError] = useState('')
+  const [cancelling, setCancelling] = useState(false)
+  const bookings = reservations.map((reservation) => toBooking(reservation, now))
+  const upcoming = bookings.filter((booking) => !booking.isCancelled && new Date(booking.fim) > now)
+  const history = bookings.filter((booking) => booking.isCancelled || new Date(booking.fim) <= now)
 
-  const shareBooking = async (booking: Pick<Booking, 'courtId' | 'dateLabel' | 'startTime' | 'duration'>) => {
-    const court = courts.find((item) => item.id === booking.courtId) ?? courts[0]
+  useEffect(() => {
+    if (!hasSession) {
+      navigate(`/acesso?returnTo=${encodeURIComponent('/minhas-reservas')}`, { replace: true })
+      return
+    }
+    if (!isAthlete) {
+      navigate('/admin', { replace: true })
+      return
+    }
+
+    let active = true
+    Promise.all([listCourts(), listMyReservations()])
+      .then(([courtDtos, athleteReservations]) => {
+        if (!active) return
+        setCourts(courtDtos.map(mapCourt))
+        setReservations(athleteReservations)
+      })
+      .catch((requestError: unknown) => {
+        if (active) setError(getApiErrorMessage(requestError, 'Não foi possível carregar suas reservas.'))
+      })
+
+    return () => { active = false }
+  }, [hasSession, isAthlete, navigate])
+
+  const getCourt = (booking: Booking) =>
+    courts.find((item) => item.id === booking.quadraId)
+    ?? mapCourt({ id: booking.quadraId, nome: 'Quadra da arena', ativa: true })
+
+  const shareBooking = async (booking: Booking) => {
+    const court = getCourt(booking)
     const message = `${court.name} • ${booking.dateLabel}, ${booking.startTime} - ${endTime(booking.startTime, booking.duration)}`
     try {
       await navigator.clipboard.writeText(message)
       setNotice('Detalhes da reserva copiados.')
     } catch {
-      setNotice(message)
+      setNotice(`Não foi possível copiar. ${message}`)
     }
-    window.setTimeout(() => setNotice(''), 3000)
-  }
-
-  const confirmCancel = () => {
-    if (!cancelTarget) return
-    setBookings((current) => current.map((booking) =>
-      booking.id === cancelTarget.id ? { ...booking, status: 'cancelled' } : booking,
-    ))
-    setCancelTarget(null)
-    setNotice('Reserva removida da lista de próximos jogos. A alteração ainda não foi enviada à API.')
     window.setTimeout(() => setNotice(''), 4000)
   }
+
+  const confirmCancel = async () => {
+    if (!cancelTarget) return
+    setCancelling(true)
+    setError('')
+    try {
+      await cancelReservation(cancelTarget.id)
+      setReservations((current) => current.map((reservation) =>
+        reservation.id === cancelTarget.id ? { ...reservation, status: 'Cancelada' } : reservation,
+      ))
+      setCancelTarget(null)
+      setNotice('Reserva cancelada.')
+      window.setTimeout(() => setNotice(''), 3000)
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'Não foi possível cancelar a reserva.'))
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  if (!isAthlete) return null
 
   return (
     <div className="my-bookings-page">
@@ -68,23 +129,25 @@ export default function MyReservationsPage() {
         <div>
           <p className="my-bookings-eyebrow"><CalendarCheck size={15} /> ÁREA DO ATLETA</p>
           <h1>Minhas reservas</h1>
-          <p>Acompanhe seus próximos jogos e consulte o histórico da arena.</p>
+          <p>Acompanhe os horários vinculados à sua conta.</p>
         </div>
         <div className="booking-status-note"><Clock3 size={16} /><span>Horários locais da arena</span></div>
       </header>
 
+      {error && <p className="booking-toast" role="alert">{error}</p>}
+
       <div className="booking-tabs" role="tablist" aria-label="Reservas por período">
         <button aria-selected={activeTab === 'upcoming'} className={activeTab === 'upcoming' ? 'is-active' : ''} onClick={() => setActiveTab('upcoming')} role="tab" type="button">Próximos jogos <span>{upcoming.length}</span></button>
-        <button aria-selected={activeTab === 'history'} className={activeTab === 'history' ? 'is-active' : ''} onClick={() => setActiveTab('history')} role="tab" type="button">Histórico <span>{history.length + cancelled.length}</span></button>
+        <button aria-selected={activeTab === 'history'} className={activeTab === 'history' ? 'is-active' : ''} onClick={() => setActiveTab('history')} role="tab" type="button">Histórico <span>{history.length}</span></button>
       </div>
 
       {activeTab === 'upcoming' ? (
         <section aria-label="Próximos jogos" className="booking-list">
           {upcoming.length ? upcoming.map((booking, index) => {
-            const court = courts.find((item) => item.id === booking.courtId) ?? courts[0]
+            const court = getCourt(booking)
             return (
               <article className="my-booking-card" key={booking.id}>
-                <div className={`booking-color-bar booking-color-${index}`} />
+                <div className={`booking-color-bar booking-color-${index % 2}`} />
                 <div className="my-booking-photo"><img alt={court.imageAlt} loading="lazy" src={court.image} /><span>{court.covering}</span></div>
                 <div className="my-booking-content">
                   <div className="my-booking-title-row">
@@ -94,8 +157,8 @@ export default function MyReservationsPage() {
                   <div className="booking-facts">
                     <div><small>DATA E HORÁRIO</small><strong>{booking.dateLabel}, {booking.startTime}</strong></div>
                     <div><small>DURAÇÃO</small><strong>{booking.duration} min</strong></div>
-                    <div><small>PAGAMENTO</small><strong>{booking.payment}</strong></div>
-                    <div><small>JOGADORES</small><strong>{booking.players}</strong></div>
+                    <div><small>VALOR (NA ARENA)</small><strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(booking.valor)}</strong></div>
+                    <div><small>STATUS</small><strong>{booking.status}</strong></div>
                   </div>
                   <div className="booking-actions">
                     <button className="booking-share" onClick={() => void shareBooking(booking)} type="button"><Share2 size={14} /> Compartilhar detalhes</button>
@@ -108,9 +171,9 @@ export default function MyReservationsPage() {
         </section>
       ) : (
         <section aria-label="Histórico de jogos" className="history-panel">
-          <div className="history-heading"><h2>Partidas anteriores</h2><span>REGISTROS RECENTES</span></div>
-          {[...cancelled.map((booking) => ({ ...booking, isCancelled: true })), ...history.map((booking) => ({ ...booking, isCancelled: false }))].map((booking) => {
-            const court = courts.find((item) => item.id === booking.courtId) ?? courts[0]
+          <div className="history-heading"><h2>Partidas anteriores</h2><span>RESERVAS DA SUA CONTA</span></div>
+          {history.length ? history.map((booking) => {
+            const court = getCourt(booking)
             return (
               <article className="history-row" key={booking.id}>
                 <span className="history-icon"><Check size={17} /></span>
@@ -119,13 +182,13 @@ export default function MyReservationsPage() {
                 {!booking.isCancelled && <button aria-label="Copiar detalhes da reserva" className="history-share" onClick={() => void shareBooking(booking)} type="button"><Copy size={16} /></button>}
               </article>
             )
-          })}
+          }) : <p>Nenhuma reserva no histórico.</p>}
         </section>
       )}
 
       <section className="booking-policy">
         <span><ShieldCheck size={21} /></span>
-        <div><h2>Política de cancelamento</h2><p>Confira as condições de cancelamento com a recepção antes de confirmar. A política definitiva será exibida quando a reserva estiver integrada à API.</p></div>
+        <div><h2>Cancelamento</h2><p>O cancelamento é enviado à API. O pagamento deve ser combinado com a arena.</p></div>
       </section>
 
       {notice && <div aria-live="polite" className="booking-toast">{notice}</div>}
@@ -136,9 +199,9 @@ export default function MyReservationsPage() {
             <button aria-label="Fechar" className="cancel-close" onClick={() => setCancelTarget(null)} type="button"><X size={18} /></button>
             <span className="cancel-dialog-icon"><ShieldCheck size={22} /></span>
             <p className="my-bookings-eyebrow">CONFIRMAÇÃO</p>
-            <h2 id="cancel-title">Remover esta reserva?</h2>
-            <p>Esta ação altera apenas a demonstração local. Nenhum cancelamento ou reembolso será enviado ao servidor.</p>
-            <div className="cancel-dialog-actions"><button onClick={() => setCancelTarget(null)} type="button">Manter reserva</button><button onClick={confirmCancel} type="button">Remover da lista</button></div>
+            <h2 id="cancel-title">Cancelar esta reserva?</h2>
+            <p>Esta ação será enviada à API e não poderá ser desfeita.</p>
+            <div className="cancel-dialog-actions"><button disabled={cancelling} onClick={() => setCancelTarget(null)} type="button">Manter reserva</button><button disabled={cancelling} onClick={() => void confirmCancel()} type="button">{cancelling ? 'Cancelando...' : 'Confirmar cancelamento'}</button></div>
           </section>
         </div>
       )}
