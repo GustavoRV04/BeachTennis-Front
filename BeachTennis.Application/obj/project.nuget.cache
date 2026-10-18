@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "ou4hMZKZY/s=",
+  "success": true,
+  "projectFilePath": "c:\\Users\\gusta\\OneDrive\\Desktop\\BeachT\\BeachT-Front\\BeachTennis.Application\\BeachTennis.Application.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\gusta\\.nuget\\packages\\bcrypt.net-next\\4.2.0\\bcrypt.net-next.4.2.0.nupkg.sha512"
+  ],
+  "logs": []
+}
